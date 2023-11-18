@@ -1,0 +1,8 @@
+lc_lcm_to_ros_node:
+  ros__parameters:
+
+    url_type:
+      external : "udpm://239.255.76.1:5004?ttl=3"
+      broadcast : "udpm://224.0.0.7:5006?ttl=1"
+
+    

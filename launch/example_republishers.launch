@@ -1,0 +1,8 @@
+<launch>
+    <node pkg="lcm_to_ros" exec="dat_vehicle_heartbeat_msg_republisher" respawn="false" name="dat_vehicle_heartbeat_msg_republisher" output="screen" namespace="lcm_to_ros"/>
+    <node pkg="lcm_to_ros" exec="request_connection_response_msg_republisher" respawn="false" name="request_connection_response_msg_republisher" output="screen" namespace="lcm_to_ros"/>
+    <node pkg="lcm_to_ros" exec="dat_station_heartbeat_msg_republisher" respawn="false" name="dat_station_heartbeat_msg_republisher" output="screen" namespace="lcm_to_ros"/>
+    <node pkg="lcm_to_ros" exec="request_connection_msg_republisher" respawn="false" name="request_connection_msg_republisher" output="screen" namespace="lcm_to_ros"/>
+    <node pkg="lcm_to_ros" exec="cmd_discrete_device_msg_republisher" respawn="false" name="cmd_discrete_device_msg_republisher" output="screen" namespace="lcm_to_ros"/>
+    <node pkg="lcm_to_ros" exec="cmd_throttle_msg_republisher" respawn="false" name="cmd_throttle_msg_republisher" output="screen" namespace="lcm_to_ros"/>
+</launch>
