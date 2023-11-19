@@ -1,0 +1,32 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/a/robot_act_ROS_driver/install/motor_interfaces/include/**",
+        "/home/a/ARGJ801_simulator/install/wiimote_msgs/include/**",
+        "/home/a/ARGJ801_simulator/install/spacenav/include/**",
+        "/home/a/ARGJ801_simulator/install/joy/include/**",
+        "/home/a/ARGJ801_simulator/install/robot_localization/include/**",
+        "/home/a/ARGJ801_simulator/install/microstrain_3dmgx1_imu/include/**",
+        "/home/a/ARGJ801_simulator/install/microstrain_3dmgx1_interfaces/include/**",
+        "/home/a/ARGJ801_simulator/install/gazebo_plugins/include/**",
+        "/home/a/ARGJ801_simulator/install/gazebo_ros/include/**",
+        "/home/a/ARGJ801_simulator/install/gazebo_msgs/include/**",
+        "/home/a/ARGJ801_simulator/install/argj801_ctl_platform_interfaces/include/**",
+        "/home/a/ARGJ801_simulator/install/argj801_ctl_mission_interfaces/include/**",
+        "/opt/ros/humble/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

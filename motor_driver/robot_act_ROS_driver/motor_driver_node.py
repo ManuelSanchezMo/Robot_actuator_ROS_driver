@@ -25,8 +25,10 @@ from rclpy.lifecycle import Publisher
 from rclpy.lifecycle import State
 from rclpy.lifecycle import TransitionCallbackReturn
 from rclpy.timer import Timer
-
+import motor_driver 
 import std_msgs.msg
+from motor_interfaces.srv import Config1,Config2,Config3,SendTransition
+from motor_interfaces.msg import OutElec, OutMec, SendComm
 
 
 class LifecycleMotorNode(Node):
@@ -37,9 +39,40 @@ class LifecycleMotorNode(Node):
         self._count: int = 0
         self._pub: Optional[Publisher] = None
         self._timer: Optional[Timer] = None
+        self._motor = motor_driver.motor_driver(cobid = 10, channel='vcan0')
+        self._motor_ns = '/motor_0/'
+        #self._publisher_mec_out = self.create_publisher(OutElec, self._motor_ns + 'elec_out', 10)
+        #self._publisher_elec_out = self.create_publisher(OutElec,  self._motor_ns + 'mec_out', 10)
+
         super().__init__(node_name, **kwargs)
 
-    def publish(self):
+
+    def config_1_callback(self, request, response):
+        print('config1')
+        response = self._motor.send_config_1(P_controller=request.p_control, 
+                                  I_controller=request.I_control, D_controller=request.D_control)
+        return response
+    
+    def config_2_callback(self, request, response):
+        print('config2')
+        response = self._motor.send_config_2(P_vel=request.p_vel,I_vel=request.i_vel,
+                                             D_vel=request.d_vel, Vel_lim=request.vel_lim)
+        return response
+    
+    def config_3_callback(self, request, response):
+        print('config2')
+        response = self._motor.send_config_3(Volt_lim=request.volt_lim, V_aling=request.v_aling,
+                                             Calibrate=request.calibrate, Zero_angle_elec=request.zero_angle_elec)
+        return response   
+    
+    def send_transition_callback(self, request, response):
+        response = self._motor.send_transition(transition = response.transition)
+        return response 
+      
+    def command_callback(self, msg):
+        print('comm')
+
+    def publish_motor_ou(self):
         """Publish a new message when enabled."""
         msg = std_msgs.msg.String()
         msg.data = 'Lifecycle HelloWorld #' + str(self._count)
@@ -55,8 +88,19 @@ class LifecycleMotorNode(Node):
         # publisher.
         # Only if the publisher is in an active state, the message transfer is
         # enabled and the message actually published.
-        if self._pub is not None:
-            self._pub.publish(msg)
+        if self._pub is not None and self._pub.is_activated:
+            msg_out_mec = OutMec()
+            msg_out_mec.shaft_angle = self._motor.motor_mec_out['shaft_angle']
+            msg_out_mec.shaft_angle_sp = self._motor.motor_mec_out['shaft_angle_sp']
+            msg_out_mec.shaft_velocity = self._motor.motor_mec_out['shaft_velocity']
+            self._publisher_mec_out.publish(msg_out_mec)
+            msg_out_elec = OutElec()
+            msg_out_elec.current = self._motor.motor_elec_out['current']
+            msg_out_elec.electrical_angle = self._motor.motor_elec_out['electrical_angle']
+            msg_out_elec.ua = self._motor.motor_elec_out['Ua']
+            msg_out_elec.ub = self._motor.motor_elec_out['Ub']
+            self._publisher_elec_out.publish(msg_out_elec)
+
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         """
@@ -72,8 +116,15 @@ class LifecycleMotorNode(Node):
             TransitionCallbackReturn.ERROR or any uncaught exceptions to "errorprocessing"
         """
         self._pub = self.create_lifecycle_publisher(std_msgs.msg.String, 'lifecycle_chatter', 10)
-        self._timer = self.create_timer(1.0, self.publish)
-
+        self._publisher_mec_out = self.create_lifecycle_publisher(OutMec, 'elec_out', 10)
+        self._publisher_elec_out = self.create_lifecycle_publisher(OutElec,   'mec_out', 10)
+        self._timer = self.create_timer(1.0, self.publish_motor_ou)
+        self._config1_srv = self.create_service(Config1, 'Motor_config_1', self.config_1_callback)
+        self._config2_srv = self.create_service(Config2, 'Motor_config_2', self.config_2_callback)
+        self._config3_srv = self.create_service(Config3, 'Motor_config_3', self.config_3_callback)
+        self._send_transition_srv = self.create_service(SendTransition, 'send_transition', self.send_transition_callback)
+        self._commad_suscriber = self.create_subscription(SendComm, "command_angle", self.command_callback, 10)
+        
         self.get_logger().info('on_configure() is called.')
         return TransitionCallbackReturn.SUCCESS
 

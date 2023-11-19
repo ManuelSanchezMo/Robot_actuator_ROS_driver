@@ -1,0 +1,6 @@
+float32 volt_lim
+float32 v_aling
+float32 calibrate
+float32 zero_angle_elec
+---
+bool ack
