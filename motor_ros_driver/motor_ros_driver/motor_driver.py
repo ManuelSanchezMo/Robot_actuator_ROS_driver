@@ -4,18 +4,16 @@ from threading import Thread
 import os 
 
 class motor_driver():
-    def __init__(self, cobid = 0, interface='socketcan', channel='can0', bitrate=500000, dicfile = 'can_parser.dbc'):
+    def __init__(self, cobid = 0, interface='socketcan', channel='can0', bitrate=500000, dicfile = 'can_parser.dbc', ger_box_ratio = 6.0):
         self.cobid = cobid
         self.interface = interface
         self.channel = channel
         self.bitrate = bitrate
         self.bus = can.ThreadSafeBus(interface= self.interface, channel=self.channel, bitrate=self.bitrate)
         self.dicfile = dicfile
-
-
         self.can_db = cantools.database.load_file( dicfile)
         self._base_can_frames = {'motor_config_1' : 1, 'motor_config_2' : 2, 'motor_config_3' : 3, 'motor_out_elec': 4,  
-                                 'motor_out_mec' : 5, 'transition': 6, 'motor_sp' : 7}
+                                 'motor_out_mec' : 5, 'transition': 6, 'motor_sp' : 7} #can frames function  dictionary
         self._is_on = True
         self.motor_elec_out ={'Ua': 0.0, 'Ub': 0.0, 'current': 0.0, 'electrical_angle': 0.0}
         self.motor_mec_out ={'shaft_angle': 0.0, 'shaft_angle_sp': 0.0, 'shaft_velocity': 0.0}
@@ -23,21 +21,19 @@ class motor_driver():
                                   [0, 0, 0, 0, 2, 4, 0], [0, 0, 0, 0, 0, 0, 2]]
         self._states_table = [[1 , 2, 0, 0],[1, 2, 3, 4],
                              [0, 2, 3, 4], [1, 0, 0, 4]]
-        self._motor_states ={'init': 1, 'preoperational': 2, 'running': 3, 'stop': 4}
-        self._current_state = 1
-        self._gearbox_ratio = 6.0
-        self.motor_command_frame = 7 
-        self.fsm_transition_frame = 5
+        self._motor_states ={'init': 1, 'preoperational': 2, 'running': 3, 'stop': 4} #Internal Finite State Machine State
+        self._current_state = 1 
+        self._gearbox_ratio = ger_box_ratio
         self._motor_position = 0.0
-        self._read_bus = Thread(target = self.read_bus)
+        self._read_bus = Thread(target = self.read_bus) #Thread to poll the bus while the motor is running
         self._read_bus.start()
         
     def change_state(self, transition):
+        #If the transition exists for the current state in the transition table, change state
         if 1 <= transition <len(self._transition_table[0]):
             if self._transition_table[self._current_state - 1][transition] != 0:
-                
                 self._current_state = self._transition_table[self._current_state - 1][transition]
-                self.send_msg(self.motor_command_frame + self.cobid , [transition])
+                self.send_msg(self._base_can_frames['motor_sp'] + self.cobid , [transition])
                 return True
             else:
                 print('Incorrect transition')
@@ -77,10 +73,11 @@ class motor_driver():
         return ack
             
     def send_command(self, angle):
-        if  self._current_state == self._motor_states['running']: 
+        
+        if  self._current_state == self._motor_states['running']: #If the motor is is running state, send the angle command
             angle = angle*self._gearbox_ratio
-            encoded_message = self.can_db.encode_message(self.motor_command_frame ,{'angle_sp' : angle})
-            self.send_msg(self.motor_command_frame + self.cobid , encoded_message)
+            encoded_message = self.can_db.encode_message(self._base_can_frames['motor_sp'],{'angle_sp' : angle})
+            self.send_msg(self._base_can_frames['motor_sp'] + self.cobid , encoded_message)
         else:
             print('Only send commands on running mode!')
             
@@ -91,9 +88,7 @@ class motor_driver():
         while self._is_on:
             msg = self.bus.recv(1)
             if msg is not None:
-
                     try:
-        
                         if (msg.arbitration_id-self.cobid) == self._base_can_frames["motor_out_elec"]:
                             print('rec motor elec')
                             self._motor_elec_out = self.can_db.decode_message((msg.arbitration_id-self.cobid), msg.data)
