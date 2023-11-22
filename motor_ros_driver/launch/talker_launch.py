@@ -37,26 +37,10 @@ config = os.path.join(
 motor_ns = 'motor_1_node'
 def generate_launch_description():
     ld = LaunchDescription()
-    ld.add_action(DeclareLaunchArgument('configure',   default_value='true',            description='Whether or not to configure the node on startup'))
-    ld.add_action(DeclareLaunchArgument('activate',    default_value='true',            description='Whether or not to activate the node on startup'))
-    motor_1_node = LifecycleNode(package='motor_ros_driver', executable='motor_node',
-                      name='motor_node', namespace='', output='screen',        parameters=[{'my_int': 5}])    
-    config_event = EmitEvent(
-    event = ChangeState(
-      lifecycle_node_matcher = matches_action(motor_1_node),
-      transition_id          = Transition.TRANSITION_CONFIGURE
-    ),
-    condition = LaunchConfigurationEquals('configure', 'true')
-  )
-    activate_event = EmitEvent(
-    event = ChangeState(
-      lifecycle_node_matcher = matches_action(motor_1_node),
-      transition_id          = Transition.TRANSITION_ACTIVATE
-    ),
-    condition = LaunchConfigurationEquals('activate', 'true')
-  )
+    motor_1_node = Node(package='motor_ros_driver', executable='talker_node',
+                      name='talker_launch', namespace='', output='screen', parameters=[{'my_int': 5}])    
+   
                 
     ld.add_action(motor_1_node)
-    ld.add_action(config_event)
-    ld.add_action(activate_event)
+
     return ld

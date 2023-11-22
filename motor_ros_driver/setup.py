@@ -25,6 +25,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': ['motor_node = motor_ros_driver.motor_driver_node:main'],
+         'console_scripts': ['talker_node = motor_ros_driver.talker:main'],
     },
 )
 
