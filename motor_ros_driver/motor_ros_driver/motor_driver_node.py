@@ -1,13 +1,14 @@
+#!/usr/bin/env python3
 import rclpy
-from typing import Optional
 import os
+import logging
 
-from rclpy.lifecycle import Node, Publisher, State, TransitionCallbackReturn
+from rclpy.lifecycle import Node, State, TransitionCallbackReturn
 from rclpy.timer import Timer
 from ament_index_python.packages import get_package_share_directory
 from motor_interfaces.srv import Config1, Config2, Config3, SendTransition
 from motor_interfaces.msg import OutElec, OutMec, SendComm
-import MotorDriver
+from .motor_driver import MotorDriver
 
 class LifecycleMotorNode(Node):
     """ROS2 Lifecycle Node for motor control."""
@@ -17,7 +18,14 @@ class LifecycleMotorNode(Node):
         super().__init__(node_name, **kwargs)
         share_directory = get_package_share_directory('motor_ros_driver')
         self._can_parser_dbc_param = self.declare_parameter('can_parser_dbc', os.path.join(share_directory, 'can_parser.dbc'))
-        self._motor = motor_driver.motor_driver(cobid=10, channel='vcan0', dicfile=self._can_parser_dbc_param.value)
+        self._timer_duration_param = self.declare_parameter('timer_duration', 0.05)
+
+        # Initialize parameters with default values
+        self._channel_param = self.declare_parameter('channel', rclpy.Parameter.Type.STRING)
+        self._node_id_param = self.declare_parameter('node_id', rclpy.Parameter.Type.INTEGER)
+        self._motor_namespace = self.get_namespace()
+
+        self._motor = None
         self._publisher_mec_out = None
         self._publisher_elec_out = None
         self._timer = None
@@ -25,29 +33,26 @@ class LifecycleMotorNode(Node):
         self._config2_srv = None
         self._config3_srv = None
         self._send_transition_srv = None
-        self._commad_suscriber = None
+        self._command_subscriber = None
 
-    def _get_can_parser_path(self):
-        return self._can_parser_dbc_param.value
+        # Logger setup
+        self._logger = self.get_logger()
 
     def _create_publishers(self):
         """Create ROS2 publishers for motor data."""
-        motor_ns = "motor_1/"
-        self._publisher_mec_out = self.create_lifecycle_publisher(OutMec, motor_ns + 'elec_out', 10)
-        self._publisher_elec_out = self.create_lifecycle_publisher(OutElec, motor_ns + 'mec_out', 10)
+        self._publisher_mec_out = self.create_lifecycle_publisher(OutMec, f'{self._motor_namespace}/elec_out', 10)
+        self._publisher_elec_out = self.create_lifecycle_publisher(OutElec, f'{self._motor_namespace}/mec_out', 10)
 
     def _create_services(self):
         """Create ROS2 services for motor configuration and transitions."""
-        motor_ns = "motor_1/"
-        self._config1_srv = self.create_service(Config1, motor_ns + 'motor_config_1', self.config_1_callback)
-        self._config2_srv = self.create_service(Config2, motor_ns + 'motor_config_2', self.config_2_callback)
-        self._config3_srv = self.create_service(Config3, motor_ns + 'motor_config_3', self.config_3_callback)
-        self._send_transition_srv = self.create_service(SendTransition, motor_ns + 'send_transition', self.send_transition_callback)
+        self._config1_srv = self.create_service(Config1, f'{self._motor_namespace}/motor_config_1', self.config_1_callback)
+        self._config2_srv = self.create_service(Config2, f'{self._motor_namespace}/motor_config_2', self.config_2_callback)
+        self._config3_srv = self.create_service(Config3, f'{self._motor_namespace}/motor_config_3', self.config_3_callback)
+        self._send_transition_srv = self.create_service(SendTransition, f'{self._motor_namespace}/send_transition', self.send_transition_callback)
 
     def _create_subscriber(self):
         """Create ROS2 subscriber for motor commands."""
-        motor_ns = "motor_1/"
-        self._commad_suscriber = self.create_subscription(SendComm, motor_ns + "command_angle", self.command_callback, 10)
+        self._command_subscriber = self.create_subscription(SendComm, f'{self._motor_namespace}/command_angle', self.command_callback, 10)
 
     def initialize_motor_components(self):
         """Initialize motor-related ROS2 components."""
@@ -75,7 +80,7 @@ class LifecycleMotorNode(Node):
 
     def send_transition_callback(self, request, response):
         """Callback for motor send transition service."""
-        ack = self._motor.send_transition(transition=request.transition)
+        self._motor.send_transition(transition=request.transition)
         return response
 
     def command_callback(self, msg):
@@ -84,6 +89,7 @@ class LifecycleMotorNode(Node):
 
     def publish_motor_output(self):
         """Publish motor state data."""
+
         if self._publisher_mec_out.is_activated:
             msg_out_mec = OutMec()
             msg_out_mec.shaft_angle = self._motor.motor_mec_out['shaft_angle']
@@ -102,13 +108,14 @@ class LifecycleMotorNode(Node):
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         """Callback for the configure transition."""
         self.initialize_motor_components()
-        self._timer = self.create_timer(1.0, self.publish_motor_output)
+        self._timer = self.create_timer(self._timer_duration_param.value, self.publish_motor_output)
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: State) -> TransitionCallbackReturn:
         """Callback for the activate transition."""
-        self.declare_parameters(namespace='', parameters=[('/motor_node/my_int', rclpy.Parameter.Type.INTEGER)])
-        self.param_str = self.get_parameter('/motor_node/my_int')
+        self._logger.info(f"Activated with parameter value: {self._channel_param.value}")
+        self._logger.info(f"Activated with parameter value: {self._node_id_param.value}")
+        self._motor = MotorDriver(cobid=self._node_id_param.value, channel=self._channel_param.value, dicfile=self._can_parser_dbc_param.value)
         return TransitionCallbackReturn.SUCCESS
 
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
@@ -127,7 +134,7 @@ class LifecycleMotorNode(Node):
         return TransitionCallbackReturn.SUCCESS
 
 
-if __name__ == '__main__':
+def main(args=None):
     rclpy.init()
     executor = rclpy.executors.SingleThreadedExecutor()
     lc_node = LifecycleMotorNode('motor_driver')
@@ -137,7 +144,5 @@ if __name__ == '__main__':
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         lc_node.destroy_node()
 
-
-
-
-
+if __name__ == '__main__':
+    main()

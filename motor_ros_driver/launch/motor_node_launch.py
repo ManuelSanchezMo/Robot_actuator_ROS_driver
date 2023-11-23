@@ -34,13 +34,13 @@ config = os.path.join(
         'config',
         'params.yaml'
         )
-motor_ns = 'motor_1_node'
+motor_ns = 'motor_2/'
 def generate_launch_description():
     ld = LaunchDescription()
     ld.add_action(DeclareLaunchArgument('configure',   default_value='true',            description='Whether or not to configure the node on startup'))
     ld.add_action(DeclareLaunchArgument('activate',    default_value='true',            description='Whether or not to activate the node on startup'))
     motor_1_node = LifecycleNode(package='motor_ros_driver', executable='motor_node',
-                      name='motor_node', namespace='', output='screen',        parameters=[{'my_int': 5}])    
+                      name='motor_node', namespace= motor_ns, output='screen',        parameters=[{'channel': 'vcan0', 'node_id' : 20}])    
     config_event = EmitEvent(
     event = ChangeState(
       lifecycle_node_matcher = matches_action(motor_1_node),
